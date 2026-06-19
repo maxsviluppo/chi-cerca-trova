@@ -148,6 +148,23 @@ async function initDatabase() {
       )
     `;
 
+    // Perform schema check and migrations for older Neon DB instances
+    try {
+      await sql`ALTER TABLE levels ADD COLUMN IF NOT EXISTS game_mode VARCHAR(20) DEFAULT 'objects'`;
+      await sql`ALTER TABLE levels ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT TRUE`;
+    } catch (e) {
+      console.warn("Alter table levels failed or column already exists:", e);
+    }
+
+    try {
+      await sql`ALTER TABLE objects ADD COLUMN IF NOT EXISTS scale DOUBLE PRECISION DEFAULT 1`;
+      await sql`ALTER TABLE objects ADD COLUMN IF NOT EXISTS rotation DOUBLE PRECISION DEFAULT 0`;
+      await sql`ALTER TABLE objects ADD COLUMN IF NOT EXISTS opacity DOUBLE PRECISION DEFAULT 1`;
+      await sql`ALTER TABLE objects ADD COLUMN IF NOT EXISTS hint TEXT`;
+    } catch (e) {
+      console.warn("Alter table objects failed or column already exists:", e);
+    }
+
     // Populate initial stickers if table is empty
     const assetsCount = await sql`SELECT count(*) FROM game_assets`;
     if (parseInt(assetsCount[0].count) === 0) {
@@ -348,6 +365,10 @@ app.delete("/api/levels/:id", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Express API Server listening on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`Express API Server listening on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
