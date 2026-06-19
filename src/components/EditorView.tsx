@@ -331,8 +331,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
       return;
     }
 
+    const isNameChanged = initialLevel && levelName.trim() !== initialLevel.name.trim();
     const newLevel: Level = {
-      id: initialLevel ? initialLevel.id : `custom_${Date.now()}`,
+      id: initialLevel && !isNameChanged ? initialLevel.id : `custom_${Date.now()}`,
       name: levelName || "Livello Creativo",
       creator: creatorName || "Anonimo",
       isCustom: true,

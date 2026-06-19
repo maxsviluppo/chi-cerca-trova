@@ -250,7 +250,7 @@ app.get("/api/levels", async (req, res) => {
   }
 });
 
-// 4. Create a Level
+// 4. Create / Update a Level
 app.post("/api/levels", async (req, res) => {
   const { id, name, creator, backgroundImageUrl, difficulty, gameMode, objects } = req.body;
   if (!id || !name || !creator || !backgroundImageUrl || !difficulty || !objects) {
@@ -260,6 +260,10 @@ app.post("/api/levels", async (req, res) => {
   try {
     if (isUsingLocalFallback) {
       const data = getLocalData();
+      
+      // Remove level and its objects if already exists to overwrite it
+      data.levels = data.levels.filter((l: any) => l.id !== id);
+      data.objects = data.objects.filter((o: any) => o.level_id !== id);
       
       const newLvl = { id, name, creator, backgroundImageUrl, difficulty, gameMode, isCustom: true, created_at: new Date().toISOString() };
       data.levels.push(newLvl);
@@ -275,18 +279,24 @@ app.post("/api/levels", async (req, res) => {
           emoji: obj.emoji,
           scale: obj.scale || 1,
           rotation: obj.rotation || 0,
-          opacity: obj.opacity !== undefined ? obj.opacity : 1
+          opacity: obj.opacity !== undefined ? obj.opacity : 1,
+          hint: obj.hint
         });
       }
 
       saveLocalData(data);
       return res.json({ success: true, level: newLvl });
     } else {
-      // Save Level
+      // Save Level using UPSERT
       await sql`
         INSERT INTO levels (id, name, creator, background_image_url, difficulty, game_mode)
         VALUES (${id}, ${name}, ${creator}, ${backgroundImageUrl}, ${difficulty}, ${gameMode || 'objects'})
+        ON CONFLICT (id)
+        DO UPDATE SET name = ${name}, creator = ${creator}, background_image_url = ${backgroundImageUrl}, difficulty = ${difficulty}, game_mode = ${gameMode || 'objects'}
       `;
+
+      // Clear existing objects for this level first to avoid duplicates or orphaned elements
+      await sql`DELETE FROM objects WHERE level_id = ${id}`;
 
       // Save Objects
       for (const obj of objects) {

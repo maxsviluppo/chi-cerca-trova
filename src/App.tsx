@@ -34,6 +34,7 @@ export default function App() {
   const [foundObjectIds, setFoundObjectIds] = useState<Set<string>>(new Set());
   const [muted, setMuted] = useState(isAudioMuted());
   const [editingLevel, setEditingLevel] = useState<Level | null>(null);
+  const [levelToDeleteId, setLevelToDeleteId] = useState<string | null>(null);
   
   const [playerName, setPlayerName] = useState("Esploratore");
   const [playerAvatar, setPlayerAvatar] = useState("🕵️");
@@ -376,18 +377,28 @@ export default function App() {
 
   // Level Creator Save Callback
   const handleSaveCustomLevel = async (newLevel: Level) => {
+    // Check if there is already a custom level with the same name (case-insensitive check)
+    const existingLevel = allLevels.find(
+      (lvl) => lvl.isCustom && lvl.name.trim().toLowerCase() === newLevel.name.trim().toLowerCase()
+    );
+
+    let finalLevel = { ...newLevel };
+    if (existingLevel) {
+      finalLevel.id = existingLevel.id; // Overwrite ID to overwrite the existing level
+    }
+
     try {
       const res = await fetch("/api/levels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newLevel)
+        body: JSON.stringify(finalLevel)
       });
       if (res.ok) {
         // Refresh levels list from database
         await fetchLevels();
         setActiveView("home");
         // Instantly prompt to play your creation!
-        handleStartPlay(newLevel.id);
+        handleStartPlay(finalLevel.id);
       } else {
         alert("Errore durante il salvataggio del livello sul database.");
       }
@@ -395,36 +406,47 @@ export default function App() {
       console.error("Database save failed, using local storage fallback:", err);
       const saved = localStorage.getItem("cerca_e_trova_custom_levels");
       const currentCustoms: Level[] = saved ? JSON.parse(saved) : [];
-      const updatedCustoms = [newLevel, ...currentCustoms];
+      
+      // Clean duplicate IDs locally
+      const filteredCustoms = currentCustoms.filter((l) => l.id !== finalLevel.id);
+      const updatedCustoms = [finalLevel, ...filteredCustoms];
+      
       localStorage.setItem("cerca_e_trova_custom_levels", JSON.stringify(updatedCustoms));
       setAllLevels([DEFAULT_BUILTIN_LEVEL, ...updatedCustoms]);
       setActiveView("home");
-      handleStartPlay(newLevel.id);
+      handleStartPlay(finalLevel.id);
     }
   };
 
   // Delete custom created level helper
-  const handleDeleteCustomLevel = async (levelId: string, e: React.MouseEvent) => {
+  const handleDeleteCustomLevel = (levelId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Avoid triggering play
-    if (confirm("Sei sicuro di voler eliminare questo livello personalizzato dal tuo archivio?")) {
-      try {
-        const res = await fetch(`/api/levels/${levelId}`, { method: "DELETE" });
-        if (res.ok) {
-          await fetchLevels();
-        } else {
-          throw new Error("API error");
-        }
-      } catch (err) {
-        console.error("Failed to delete level from DB, reverting locally:", err);
-        const saved = localStorage.getItem("cerca_e_trova_custom_levels");
-        const currentCustoms: Level[] = saved ? JSON.parse(saved) : [];
-        const filtered = currentCustoms.filter((l) => l.id !== levelId);
-        localStorage.setItem("cerca_e_trova_custom_levels", JSON.stringify(filtered));
-        setAllLevels([DEFAULT_BUILTIN_LEVEL, ...filtered]);
+    playBtnClick();
+    setLevelToDeleteId(levelId);
+  };
+
+  const handleConfirmDeleteLevel = async () => {
+    if (!levelToDeleteId) return;
+    playBtnClick();
+    const id = levelToDeleteId;
+    setLevelToDeleteId(null);
+    try {
+      const res = await fetch(`/api/levels/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        await fetchLevels();
+      } else {
+        throw new Error("API error");
       }
-      if (currentLevelId === levelId) {
-        setCurrentLevelId("builtin_house");
-      }
+    } catch (err) {
+      console.error("Failed to delete level from DB, reverting locally:", err);
+      const saved = localStorage.getItem("cerca_e_trova_custom_levels");
+      const currentCustoms: Level[] = saved ? JSON.parse(saved) : [];
+      const filtered = currentCustoms.filter((l) => l.id !== id);
+      localStorage.setItem("cerca_e_trova_custom_levels", JSON.stringify(filtered));
+      setAllLevels([DEFAULT_BUILTIN_LEVEL, ...filtered]);
+    }
+    if (currentLevelId === id) {
+      setCurrentLevelId("builtin_house");
     }
   };
 
@@ -471,7 +493,7 @@ export default function App() {
         `}</style>
 
         {/* 1080x1920 (9:16) Device-Cabinet Frame spanning from the top edge to the bottom edge of the viewport */}
-        <div className="relative h-screen w-full max-w-[56.25vh] mx-auto bg-slate-900 overflow-hidden flex flex-col justify-between shadow-3xl">
+        <div className="relative h-[100dvh] w-full max-w-[56.25dvh] mx-auto bg-slate-900 overflow-hidden flex flex-col justify-between shadow-3xl">
           
           {/* BACKDROP IMAGE / ANIMATION LAYER (absolute inset-0 z-0, covering 100% height from top of page to bottom of screen) */}
           <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
@@ -859,7 +881,7 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen text-slate-800 font-sans antialiased SelectionColor selection:bg-indigo-500/10 transition-colors duration-300 ${(activeView === "home" || activeView === "levels" || activeView === "differences") ? "h-screen overflow-hidden bg-slate-950" : "bg-slate-50 pb-16"}`}>
+    <div className={`min-h-screen text-slate-800 font-sans antialiased SelectionColor selection:bg-indigo-500/10 transition-colors duration-300 ${(activeView === "home" || activeView === "levels" || activeView === "differences") ? "h-[100dvh] overflow-hidden bg-slate-950" : "bg-slate-50 pb-16"}`}>
       
       {/* Dynamic Fonts Import in Header */}
       <style>{`
@@ -1236,9 +1258,9 @@ export default function App() {
       <main className={`animate-fadeIn ${activeView === "home" ? "mt-0" : "mt-4"}`}>
         {/* VIEW 1: HOME DASHBOARD / LEVEL SELECTOR */}
         {activeView === "home" && (
-          <div className="fixed inset-0 w-screen h-screen bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
+          <div className="fixed inset-0 w-screen h-[100dvh] bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
             {/* 1080x1290 Centered Frame */}
-            <div className="relative h-screen w-full max-w-[83.72vh] mx-auto bg-slate-900 overflow-hidden flex flex-col justify-center items-center shadow-3xl">
+            <div className="relative h-[100dvh] w-full max-w-[83.72dvh] mx-auto bg-slate-900 overflow-hidden flex flex-col justify-center items-center shadow-3xl">
               {/* CABINET FLOATING HEADER - LEFT (Login/Profile) */}
               <div className="absolute top-4 left-4 z-20 pointer-events-auto flex items-center gap-2">
                 <button
@@ -1344,9 +1366,9 @@ export default function App() {
 
         {/* VIEW 1.5: LEVELS LIST SELECTION VIEW (Trova gli Oggetti) */}
         {activeView === "levels" && (
-          <div className="fixed inset-0 w-screen h-screen bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
+          <div className="fixed inset-0 w-screen h-[100dvh] bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
             {/* 1080x1290 Centered Frame */}
-            <div className="relative h-screen w-full max-w-[83.72vh] mx-auto bg-[#1f1610] overflow-hidden flex flex-col shadow-3xl">
+            <div className="relative h-[100dvh] w-full max-w-[83.72dvh] mx-auto bg-[#1f1610] overflow-hidden flex flex-col shadow-3xl">
               
               {/* Scrollable Container with Hidden Scrollbar */}
               <div className="w-full h-full overflow-y-auto scrollbar-none touch-pan-y relative flex flex-col">
@@ -1462,9 +1484,9 @@ export default function App() {
 
         {/* VIEW 1.6: LEVELS LIST SELECTION VIEW (Trova le Differenze) */}
         {activeView === "differences" && (
-          <div className="fixed inset-0 w-screen h-screen bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
+          <div className="fixed inset-0 w-screen h-[100dvh] bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
             {/* 1080x1290 Centered Frame */}
-            <div className="relative h-screen w-full max-w-[83.72vh] mx-auto bg-[#1f1610] overflow-hidden flex flex-col shadow-3xl">
+            <div className="relative h-[100dvh] w-full max-w-[83.72dvh] mx-auto bg-[#1f1610] overflow-hidden flex flex-col shadow-3xl">
               
               {/* Scrollable Container with Hidden Scrollbar */}
               <div className="w-full h-full overflow-y-auto scrollbar-none touch-pan-y relative flex flex-col">
@@ -1597,6 +1619,44 @@ export default function App() {
               handleStartPlay(level.id);
             }}
           />
+        )}
+
+        {/* CUSTOM LEVEL DELETION CONFIRMATION MODAL */}
+        {levelToDeleteId && (
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-white/20 rounded-3xl p-6 max-w-[300px] w-full shadow-2xl relative animate-scaleUp text-white text-center">
+              
+              <div className="mb-4 flex flex-col items-center">
+                <div className="p-3 bg-rose-500/20 rounded-full border border-rose-500/30 mb-3 text-rose-400">
+                  <Trash className="w-6 h-6 animate-bounce" />
+                </div>
+                <h3 className="text-base font-black text-white tracking-tight leading-none mb-1.5">
+                  Eliminare questo livello?
+                </h3>
+                <p className="text-[11px] text-slate-350 font-medium leading-relaxed">
+                  Questa azione rimuoverà in modo permanente il livello sia online che localmente per tutti i giocatori.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    playBtnClick();
+                    setLevelToDeleteId(null);
+                  }}
+                  className="flex-1 py-2.5 px-3 bg-white/10 hover:bg-white/15 text-white rounded-xl cursor-pointer font-bold tracking-wide transition-all active:scale-95 border border-white/10 text-xs uppercase"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={handleConfirmDeleteLevel}
+                  className="flex-1 py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl cursor-pointer font-black tracking-wide transition-all active:scale-95 border border-rose-500 text-xs uppercase shadow-md shadow-rose-600/10"
+                >
+                  Elimina
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>

@@ -171,9 +171,11 @@ export const GameUI: React.FC<GameUIProps> = ({
               </div>
             ) : (
               <div className="flex overflow-x-auto gap-4 py-2 scrollbar-thin scrollbar-thumb-slate-700 pb-2">
-                {sortedObjects.map((obj) => {
-                  const isFound = foundObjectIds.has(obj.id);
-                  const isHintActive = activeHintId === obj.id;
+                {sortedObjects
+                  .filter((obj) => !foundObjectIds.has(obj.id))
+                  .map((obj) => {
+                    const isHintActive = activeHintId === obj.id;
+                    const isFound = false;
                   
                   return (
                     <div
