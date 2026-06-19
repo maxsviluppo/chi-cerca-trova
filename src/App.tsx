@@ -1161,63 +1161,66 @@ export default function App() {
       <main className={`animate-fadeIn ${activeView === "home" ? "mt-0" : "mt-4"}`}>
         {/* VIEW 1: HOME DASHBOARD / LEVEL SELECTOR */}
         {activeView === "home" && (
-          <div className="fixed inset-0 w-screen h-screen bg-slate-950 overflow-hidden flex flex-col justify-center items-center p-6 z-0">
-            {/* CABINET FLOATING HEADER */}
-            <div className="absolute top-4 right-4 z-20 pointer-events-auto">
-              {/* Mute Button */}
-              <button
-                onClick={handleToggleMute}
-                className={`p-2 rounded-xl border transition-all cursor-pointer ${
-                  muted 
-                    ? "border-rose-500/30 bg-rose-500/20 text-rose-300 hover:bg-rose-500/35"
-                    : "border-white/10 bg-white/10 hover:bg-white/20 text-white"
-                }`}
-                title={muted ? "Riattiva audio" : "Disattiva audio"}
-              >
-                {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-
-            {/* Full-bleed background Image-11 */}
-            <img 
-              src={homeBg}
-              alt="Sfondo"
-              className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-1000 scale-105"
-              style={{ objectPosition: "center 40px" }}
-            />
-
-            {/* FLOATING ACTION BUTTONS */}
-            <div 
-              className="absolute bottom-[18%] left-1/2 -translate-x-1/2 w-full flex justify-between items-center px-8 max-w-[760px] z-10 pointer-events-auto"
-            >
-              {/* Left Button Container */}
-              <div className="relative flex flex-col items-center group cursor-pointer pb-6 max-w-[45%]">
-                {/* Image */}
-                <img
-                  src={btnImageLeft}
-                  alt="Image 18"
-                  className="w-[360px] h-[360px] object-contain transition-all duration-300 transform group-hover:-translate-y-2 group-active:scale-90 group-active:translate-y-1 z-10"
-                  title="Image 18"
-                />
-                {/* Oval Shadow */}
-                <div 
-                  className="absolute bottom-[54px] left-1/2 -translate-x-1/2 w-[130px] max-w-[40%] h-1.5 bg-black rounded-full blur-[6px] transition-all duration-300 transform group-hover:scale-75 group-hover:opacity-90 group-active:scale-50 group-active:opacity-70 z-0"
-                />
+          <div className="fixed inset-0 w-screen h-screen bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
+            {/* 1080x1290 Centered Frame */}
+            <div className="relative h-screen w-full max-w-[83.72vh] mx-auto bg-slate-900 overflow-hidden flex flex-col justify-center items-center shadow-3xl">
+              {/* CABINET FLOATING HEADER */}
+              <div className="absolute top-4 right-4 z-20 pointer-events-auto">
+                {/* Mute Button */}
+                <button
+                  onClick={handleToggleMute}
+                  className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                    muted 
+                      ? "border-rose-500/30 bg-rose-500/20 text-rose-300 hover:bg-rose-500/35"
+                      : "border-white/10 bg-white/10 hover:bg-white/20 text-white"
+                  }`}
+                  title={muted ? "Riattiva audio" : "Disattiva audio"}
+                >
+                  {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
               </div>
 
-              {/* Right Button Container */}
-              <div className="relative flex flex-col items-center group cursor-pointer pb-6 relative top-[5px] max-w-[45%]">
-                {/* Image */}
-                <img
-                  src={btnImageRight}
-                  alt="Image 19"
-                  className="w-[352px] h-[352px] object-contain transition-all duration-300 transform group-hover:-translate-y-2 group-active:scale-90 group-active:translate-y-1 z-10"
-                  title="Image 19"
-                />
-                {/* Oval Shadow */}
-                <div 
-                  className="absolute bottom-[54px] left-1/2 -translate-x-1/2 w-[120px] max-w-[38%] h-1.5 bg-black rounded-full blur-[6px] transition-all duration-300 transform group-hover:scale-75 group-hover:opacity-90 group-active:scale-50 group-active:opacity-70 z-0"
-                />
+              {/* Full-bleed background Image-11 */}
+              <img 
+                src={homeBg}
+                alt="Sfondo"
+                className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-1000 scale-105"
+                style={{ objectPosition: "center top" }}
+              />
+
+              {/* FLOATING ACTION BUTTONS */}
+              <div 
+                className="absolute top-[55%] left-1/2 -translate-x-1/2 w-full flex justify-between items-center px-8 max-w-[760px] z-10 pointer-events-auto"
+              >
+                {/* Left Button Container */}
+                <div className="relative flex flex-col items-center group cursor-pointer pb-6 max-w-[45%]">
+                  {/* Image */}
+                  <img
+                    src={btnImageLeft}
+                    alt="Image 18"
+                    className="w-[360px] h-[360px] object-contain transition-all duration-300 transform group-hover:-translate-y-2 group-active:scale-90 group-active:translate-y-1 z-10"
+                    title="Image 18"
+                  />
+                  {/* Oval Shadow */}
+                  <div 
+                    className="absolute bottom-[54px] left-1/2 -translate-x-1/2 w-[130px] max-w-[40%] h-1.5 bg-black rounded-full blur-[6px] transition-all duration-300 transform group-hover:scale-75 group-hover:opacity-90 group-active:scale-50 group-active:opacity-70 z-0"
+                  />
+                </div>
+
+                {/* Right Button Container */}
+                <div className="relative flex flex-col items-center group cursor-pointer pb-6 relative top-[5px] max-w-[45%]">
+                  {/* Image */}
+                  <img
+                    src={btnImageRight}
+                    alt="Image 19"
+                    className="w-[352px] h-[352px] object-contain transition-all duration-300 transform group-hover:-translate-y-2 group-active:scale-90 group-active:translate-y-1 z-10"
+                    title="Image 19"
+                  />
+                  {/* Oval Shadow */}
+                  <div 
+                    className="absolute bottom-[54px] left-1/2 -translate-x-1/2 w-[120px] max-w-[38%] h-1.5 bg-black rounded-full blur-[6px] transition-all duration-300 transform group-hover:scale-75 group-hover:opacity-90 group-active:scale-50 group-active:opacity-70 z-0"
+                  />
+                </div>
               </div>
             </div>
           </div>
