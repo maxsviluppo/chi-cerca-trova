@@ -1,0 +1,6 @@
+{
+  "name": "Cerca e Trova Creator",
+  "description": "Un gioco interattivo di oggetti nascosti con editor integrato per creare livelli personalizzati con elementi animati stile cartoon.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
