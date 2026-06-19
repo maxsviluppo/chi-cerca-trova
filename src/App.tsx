@@ -1190,7 +1190,7 @@ export default function App() {
 
               {/* FLOATING ACTION BUTTONS */}
               <div 
-                className="absolute top-[55%] left-1/2 -translate-x-1/2 w-full flex justify-between items-center px-8 max-w-[760px] z-10 pointer-events-auto"
+                className="absolute top-[55%] left-1/2 -translate-x-1/2 -translate-y-[200px] w-full flex justify-between items-center px-8 max-w-[760px] z-10 pointer-events-auto"
               >
                 {/* Left Button Container */}
                 <div className="relative flex flex-col items-center group cursor-pointer pb-6 max-w-[45%]">
