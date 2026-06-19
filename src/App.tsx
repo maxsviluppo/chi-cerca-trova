@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Play, Info, Sparkles, HelpCircle, Gamepad2, Layers, Trash, User, Search, RefreshCw, Star, X, Home, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Shield } from "lucide-react";
+import { Plus, Play, Info, Sparkles, HelpCircle, Gamepad2, Layers, Trash, User, Search, RefreshCw, Star, X, Home, Volume2, VolumeX, Clock, ChevronLeft, ChevronRight, Shield, Settings } from "lucide-react";
 import { Level, HiddenObject } from "./types";
 import { BuiltInLevel, BUILT_IN_LEVEL_OBJECTS } from "./components/BuiltInLevel";
 import { EditorView } from "./components/EditorView";
@@ -12,6 +12,9 @@ import { playBtnClick, playObjectFound, playLevelCompleteSound, toggleMuteSilent
 import homeBg from "../assets/allegati/Image-11.jpeg";
 import btnImageLeft from "../assets/allegati/Image 18.png";
 import btnImageRight from "../assets/allegati/Image 19.png";
+import levelsBg from "../assets/allegati/Image-20.png";
+import differencesBg from "../assets/allegati/Image-21.png";
+import menuBtnIcon from "../assets/allegati/Progetto senza titolo (15).png";
 
 // Initial set of template levels
 const DEFAULT_BUILTIN_LEVEL: Level = {
@@ -26,7 +29,7 @@ const DEFAULT_BUILTIN_LEVEL: Level = {
 
 export default function App() {
   const [allLevels, setAllLevels] = useState<Level[]>([]);
-  const [activeView, setActiveView] = useState<"splash" | "home" | "play" | "editor">("splash");
+  const [activeView, setActiveView] = useState<"splash" | "home" | "play" | "editor" | "levels" | "differences">("splash");
   const [currentLevelId, setCurrentLevelId] = useState<string>("builtin_house");
   const [foundObjectIds, setFoundObjectIds] = useState<Set<string>>(new Set());
   const [muted, setMuted] = useState(isAudioMuted());
@@ -179,6 +182,14 @@ export default function App() {
     const savedAvatar = localStorage.getItem("cerca_e_trova_player_avatar");
     if (savedName) setPlayerName(savedName);
     if (savedAvatar) setPlayerAvatar(savedAvatar);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveView("home");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   // Timer side-effect clock tick (swivel counters)
@@ -441,7 +452,7 @@ export default function App() {
                     className={`absolute flex items-center justify-center rounded-full transition-all duration-300 cursor-pointer focus:outline-hidden
                       ${isFound 
                         ? "scale-0 rotate-[130deg] opacity-0 pointer-events-none" 
-                        : "hover:bg-white/10 active:scale-95"}`}
+                        : "active:scale-95"}`}
                     style={{
                       left: `${obj.x}%`,
                       top: `${obj.y}%`,
@@ -462,7 +473,7 @@ export default function App() {
                         {obj.emoji}
                       </span>
                     ) : (
-                      <div className="w-full h-full rounded-full bg-transparent hover:bg-white/20 hover:border hover:border-dashed hover:border-indigo-400" />
+                      <div className="w-full h-full rounded-full bg-transparent" />
                     )}
                   </button>
                 );
@@ -787,12 +798,12 @@ export default function App() {
     );
   }
 
-  if (activeView === "splash") {
+   if (activeView === "splash") {
     return <SplashView onEnter={() => setActiveView("home")} />;
   }
 
   return (
-    <div className={`min-h-screen text-slate-800 font-sans antialiased SelectionColor selection:bg-indigo-500/10 transition-colors duration-300 ${activeView === "home" ? "h-screen overflow-hidden bg-slate-950" : "bg-slate-50 pb-16"}`}>
+    <div className={`min-h-screen text-slate-800 font-sans antialiased SelectionColor selection:bg-indigo-500/10 transition-colors duration-300 ${(activeView === "home" || activeView === "levels" || activeView === "differences") ? "h-screen overflow-hidden bg-slate-950" : "bg-slate-50 pb-16"}`}>
       
       {/* Dynamic Fonts Import in Header */}
       <style>{`
@@ -821,10 +832,18 @@ export default function App() {
           100% { transform: translate(-50%, -50%) scale(3.8); opacity: 0; filter: drop-shadow(0 0 35px rgba(245,158,11,0)); }
         }
         .animate-zoomAndSpin { animation: zoomAndSpin 0.9s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
+        
+        .scrollbar-none::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-none {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
       `}</style>
-
+ 
       {/* --- SITE NAVIGATION TOP HEADER (SEMI-TRASPARENTE E ADATTIVO LATO UTENTE) --- */}
-      {activeView !== "home" && (
+      {activeView !== "home" && activeView !== "levels" && activeView !== "differences" && (
         <header className="sticky top-0 bg-white/75 backdrop-blur-md border-b border-slate-100 px-4 py-3 md:px-8 text-slate-800 shadow-xs z-45 transition-all duration-300 w-full">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           
@@ -1165,7 +1184,7 @@ export default function App() {
             {/* 1080x1290 Centered Frame */}
             <div className="relative h-screen w-full max-w-[83.72vh] mx-auto bg-slate-900 overflow-hidden flex flex-col justify-center items-center shadow-3xl">
               {/* CABINET FLOATING HEADER */}
-              <div className="absolute top-4 right-4 z-20 pointer-events-auto">
+              <div className="absolute top-4 right-4 z-20 pointer-events-auto flex items-center gap-2">
                 {/* Mute Button */}
                 <button
                   onClick={handleToggleMute}
@@ -1177,6 +1196,18 @@ export default function App() {
                   title={muted ? "Riattiva audio" : "Disattiva audio"}
                 >
                   {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+
+                {/* Settings / Gear Button */}
+                <button
+                  onClick={() => {
+                    playBtnClick();
+                    setActiveView("editor");
+                  }}
+                  className="p-2 rounded-xl border border-white/10 bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer flex items-center justify-center"
+                  title="Composizione Livelli"
+                >
+                  <Settings className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -1190,10 +1221,16 @@ export default function App() {
 
               {/* FLOATING ACTION BUTTONS */}
               <div 
-                className="absolute top-[55%] left-1/2 -translate-x-1/2 -translate-y-[200px] w-full flex justify-between items-center px-8 max-w-[760px] z-10 pointer-events-auto"
+                className="absolute top-[55%] left-1/2 -translate-x-1/2 -translate-y-[150px] w-full flex justify-between items-center px-8 max-w-[760px] z-10 pointer-events-auto"
               >
                 {/* Left Button Container */}
-                <div className="relative flex flex-col items-center group cursor-pointer pb-6 max-w-[45%]">
+                <div 
+                  onClick={() => {
+                    playBtnClick();
+                    setActiveView("levels");
+                  }}
+                  className="relative flex flex-col items-center group cursor-pointer pb-6 max-w-[45%]"
+                >
                   {/* Image */}
                   <img
                     src={btnImageLeft}
@@ -1208,7 +1245,13 @@ export default function App() {
                 </div>
 
                 {/* Right Button Container */}
-                <div className="relative flex flex-col items-center group cursor-pointer pb-6 relative top-[5px] max-w-[45%]">
+                <div 
+                  onClick={() => {
+                    playBtnClick();
+                    setActiveView("differences");
+                  }}
+                  className="relative flex flex-col items-center group cursor-pointer pb-6 relative top-[5px] max-w-[45%]"
+                >
                   {/* Image */}
                   <img
                     src={btnImageRight}
@@ -1221,6 +1264,182 @@ export default function App() {
                     className="absolute bottom-[54px] left-1/2 -translate-x-1/2 w-[120px] max-w-[38%] h-1.5 bg-black rounded-full blur-[6px] transition-all duration-300 transform group-hover:scale-75 group-hover:opacity-90 group-active:scale-50 group-active:opacity-70 z-0"
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW 1.5: LEVELS LIST SELECTION VIEW (Trova gli Oggetti) */}
+        {activeView === "levels" && (
+          <div className="fixed inset-0 w-screen h-screen bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
+            {/* 1080x1290 Centered Frame */}
+            <div className="relative h-screen w-full max-w-[83.72vh] mx-auto bg-[#1f1610] overflow-hidden flex flex-col shadow-3xl">
+              
+              {/* Scrollable Container with Hidden Scrollbar */}
+              <div className="w-full h-full overflow-y-auto scrollbar-none touch-pan-y relative flex flex-col">
+                
+                {/* Menu Button Top Left (Scrolls with page) */}
+                <div className="absolute top-4 left-4 z-20 pointer-events-auto">
+                  <img 
+                    src={menuBtnIcon} 
+                    alt="Menu" 
+                    onClick={() => {
+                      playBtnClick();
+                      setActiveView("home");
+                    }}
+                    className="w-16 h-16 object-cover cursor-pointer hover:scale-105 active:scale-95 transition-all filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]"
+                    title="Torna alla Home"
+                  />
+                </div>
+
+                {/* Fixed-at-top Image-20 with 1080x1920 aspect ratio */}
+                <div className="w-full aspect-[1080/1920] shrink-0 relative">
+                  <img
+                    src={levelsBg}
+                    alt="Livelli Sfondo"
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                  />
+                </div>
+
+                {/* Custom Levels List in a Frame */}
+                <div className="w-full px-6 pb-24 flex flex-col items-center gap-4 mt-6 z-10 relative">
+                  <h3 className="text-amber-400 font-extrabold text-lg uppercase tracking-wider mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                    Modelli dei Livelli
+                  </h3>
+                  
+                  {allLevels.filter(lvl => !lvl.gameMode || lvl.gameMode === "objects").length === 0 ? (
+                    <div className="w-full max-w-[420px] p-8 border-2 border-dashed border-white/20 rounded-3xl bg-black/45 text-center text-white/50 text-xs">
+                      Nessun livello personalizzato in questa sezione.
+                      <p className="mt-2 text-[10px] text-amber-300 font-medium">
+                        Usa l'ingranaggio in Home per creare un nuovo livello!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="w-full max-w-[420px] grid grid-cols-1 gap-4">
+                      {allLevels.filter(lvl => !lvl.gameMode || lvl.gameMode === "objects").map((lvl) => (
+                        <div 
+                          key={lvl.id}
+                          onClick={() => handleStartPlay(lvl.id)}
+                          className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden border border-white/10 hover:border-amber-400/50 hover:scale-[1.02] active:scale-98 transition-all cursor-pointer shadow-xl group bg-slate-900"
+                        >
+                          {lvl.backgroundImageUrl ? (
+                            <img
+                              src={lvl.backgroundImageUrl}
+                              alt={lvl.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-white/40 text-xs">
+                              Senza Immagine
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10 flex flex-col justify-end p-4">
+                            <h4 className="text-white font-black text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">
+                              {lvl.name}
+                            </h4>
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-[10px] font-bold text-amber-300 drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.8)]">
+                                Di: {lvl.creator}
+                              </span>
+                              <span className="px-2 py-0.5 bg-black/40 rounded-full text-[9px] font-black uppercase text-indigo-300 border border-white/15">
+                                {lvl.difficulty}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW 1.6: LEVELS LIST SELECTION VIEW (Trova le Differenze) */}
+        {activeView === "differences" && (
+          <div className="fixed inset-0 w-screen h-screen bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
+            {/* 1080x1290 Centered Frame */}
+            <div className="relative h-screen w-full max-w-[83.72vh] mx-auto bg-[#1f1610] overflow-hidden flex flex-col shadow-3xl">
+              
+              {/* Scrollable Container with Hidden Scrollbar */}
+              <div className="w-full h-full overflow-y-auto scrollbar-none touch-pan-y relative flex flex-col">
+                
+                {/* Menu Button Top Left (Scrolls with page) */}
+                <div className="absolute top-4 left-4 z-20 pointer-events-auto">
+                  <img 
+                    src={menuBtnIcon} 
+                    alt="Menu" 
+                    onClick={() => {
+                      playBtnClick();
+                      setActiveView("home");
+                    }}
+                    className="w-16 h-16 object-cover cursor-pointer hover:scale-105 active:scale-95 transition-all filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]"
+                    title="Torna alla Home"
+                  />
+                </div>
+
+                {/* Fixed-at-top Image-21 with 1080x1920 aspect ratio */}
+                <div className="w-full aspect-[1080/1920] shrink-0 relative">
+                  <img
+                    src={differencesBg}
+                    alt="Livelli Sfondo"
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                  />
+                </div>
+
+                {/* Custom Levels List in a Frame */}
+                <div className="w-full px-6 pb-24 flex flex-col items-center gap-4 mt-6 z-10 relative">
+                  <h3 className="text-amber-400 font-extrabold text-lg uppercase tracking-wider mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                    Modelli dei Livelli
+                  </h3>
+                  
+                  {allLevels.filter(lvl => lvl.gameMode === "differences").length === 0 ? (
+                    <div className="w-full max-w-[420px] p-8 border-2 border-dashed border-white/20 rounded-3xl bg-black/45 text-center text-white/50 text-xs">
+                      Nessun livello personalizzato in questa sezione.
+                      <p className="mt-2 text-[10px] text-amber-300 font-medium">
+                        Usa l'ingranaggio in Home per creare un nuovo livello!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="w-full max-w-[420px] grid grid-cols-1 gap-4">
+                      {allLevels.filter(lvl => lvl.gameMode === "differences").map((lvl) => (
+                        <div 
+                          key={lvl.id}
+                          onClick={() => handleStartPlay(lvl.id)}
+                          className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden border border-white/10 hover:border-amber-400/50 hover:scale-[1.02] active:scale-98 transition-all cursor-pointer shadow-xl group bg-slate-900"
+                        >
+                          {lvl.backgroundImageUrl ? (
+                            <img
+                              src={lvl.backgroundImageUrl}
+                              alt={lvl.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-white/40 text-xs">
+                              Senza Immagine
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10 flex flex-col justify-end p-4">
+                            <h4 className="text-white font-black text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">
+                              {lvl.name}
+                            </h4>
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-[10px] font-bold text-amber-300 drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.8)]">
+                                Di: {lvl.creator}
+                              </span>
+                              <span className="px-2 py-0.5 bg-black/40 rounded-full text-[9px] font-black uppercase text-indigo-300 border border-white/15">
+                                {lvl.difficulty}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
               </div>
             </div>
           </div>

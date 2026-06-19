@@ -46,6 +46,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const [levelName, setLevelName] = useState("Il mio super livello!");
   const [creatorName, setCreatorName] = useState("Esploratore");
   const [difficulty, setDifficulty] = useState<"Facile" | "Medio" | "Difficile">("Medio");
+  const [gameMode, setGameMode] = useState<"objects" | "differences">("objects");
   const [selectedBgUrl, setSelectedBgUrl] = useState(PRESET_BACKGROUNDS[0].url);
   const [customBgFile, setCustomBgFile] = useState<string | null>(null);
   const [objects, setObjects] = useState<HiddenObject[]>([]);
@@ -230,6 +231,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
       backgroundImageUrl: selectedBgUrl,
       objects: objects,
       difficulty: difficulty,
+      gameMode: gameMode,
     };
 
     onSaveLevel(newLevel);
@@ -329,6 +331,36 @@ export const EditorView: React.FC<EditorViewProps> = ({
                 ))}
               </div>
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                Sezione / Tipo di Gioco
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGameMode("objects")}
+                  className={`px-3 py-2 text-xs font-bold rounded-xl transition-all border cursor-pointer ${
+                    gameMode === "objects"
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-md"
+                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  Trova gli Oggetti
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGameMode("differences")}
+                  className={`px-3 py-2 text-xs font-bold rounded-xl transition-all border cursor-pointer ${
+                    gameMode === "differences"
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-md"
+                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  Trova le Differenze
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Background Selection Card */}
@@ -421,10 +453,10 @@ export const EditorView: React.FC<EditorViewProps> = ({
             <div
               ref={containerRef}
               onClick={handleCanvasClick}
-              className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden cursor-crosshair bg-slate-950 select-none shadow-inner"
+              className="relative w-full aspect-[9/16] max-w-[380px] mx-auto rounded-2xl overflow-hidden cursor-crosshair bg-slate-950 select-none shadow-inner"
               style={{
                 backgroundImage: `url("${backgroundSource}")`,
-                backgroundSize: "cover",
+                backgroundSize: "100% 100%",
                 backgroundPosition: "center",
               }}
             >

@@ -21,4 +21,5 @@ export interface Level {
   objects: HiddenObject[];
   hasCartoonAnimations?: boolean; // True for our built-in animated interactive SVG scene
   difficulty: "Facile" | "Medio" | "Difficile";
+  gameMode?: "objects" | "differences";
 }
