@@ -3,6 +3,7 @@ import { Plus, Trash, Save, Play, Image as ImageIcon, ArrowLeft, ZoomIn, Eye, Sp
 import { Level, HiddenObject } from "../types";
 
 interface EditorViewProps {
+  initialLevel?: Level | null;
   onSaveLevel: (level: Level) => void;
   onCancel: () => void;
   onPlayLevel: (level: Level) => void;
@@ -39,18 +40,21 @@ const POPULAR_STICKER_EMOJIS = [
 ];
 
 export const EditorView: React.FC<EditorViewProps> = ({
+  initialLevel,
   onSaveLevel,
   onCancel,
   onPlayLevel,
 }) => {
-  const [levelName, setLevelName] = useState("Il mio super livello!");
-  const [creatorName, setCreatorName] = useState("Esploratore");
-  const [difficulty, setDifficulty] = useState<"Facile" | "Medio" | "Difficile">("Medio");
-  const [gameMode, setGameMode] = useState<"objects" | "differences">("objects");
-  const [selectedBgUrl, setSelectedBgUrl] = useState(PRESET_BACKGROUNDS[0].url);
-  const [customBgFile, setCustomBgFile] = useState<string | null>(null);
-  const [objects, setObjects] = useState<HiddenObject[]>([]);
+  const [levelName, setLevelName] = useState(initialLevel ? initialLevel.name : "Il mio super livello!");
+  const [creatorName, setCreatorName] = useState(initialLevel ? initialLevel.creator : "Esploratore");
+  const [difficulty, setDifficulty] = useState<"Facile" | "Medio" | "Difficile">(initialLevel ? initialLevel.difficulty : "Medio");
+  const [gameMode, setGameMode] = useState<"objects" | "differences">(initialLevel ? initialLevel.gameMode || "objects" : "objects");
+  const [selectedBgUrl, setSelectedBgUrl] = useState(initialLevel ? initialLevel.backgroundImageUrl : PRESET_BACKGROUNDS[0].url);
+  const [customBgFile, setCustomBgFile] = useState<string | null>(initialLevel && !PRESET_BACKGROUNDS.some(p => p.url === initialLevel.backgroundImageUrl) ? initialLevel.backgroundImageUrl : null);
+  const [objects, setObjects] = useState<HiddenObject[]>(initialLevel ? initialLevel.objects : []);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+
+  const [draggingObjectId, setDraggingObjectId] = useState<string | null>(null);
 
   // Form states for creating/editing an object
   const [editingName, setEditingName] = useState("");
@@ -61,6 +65,27 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const [editingOpacity, setEditingOpacity] = useState(1.0);
   const [editingHint, setEditingHint] = useState("");
   const [isStickerMode, setIsStickerMode] = useState(true);
+  const [stickerEmojis, setStickerEmojis] = useState<string[]>(POPULAR_STICKER_EMOJIS);
+
+  useEffect(() => {
+    const fetchStickers = async () => {
+      try {
+        const res = await fetch("/api/assets");
+        if (res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list)) {
+            const emojis = list.map((item: any) => typeof item === "string" ? item : item.emoji);
+            if (emojis.length > 0) {
+              setStickerEmojis(emojis);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching stickers from DB:", err);
+      }
+    };
+    fetchStickers();
+  }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -81,42 +106,125 @@ export const EditorView: React.FC<EditorViewProps> = ({
     }
   }, [selectedObjectId]);
 
-  // Handle click on canvas to add / move object
-  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const mouseDownTimeRef = useRef<number>(0);
+  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleObjectMouseDown = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedObjectId(id);
+    setDraggingObjectId(id);
+  };
+
+  const handleObjectTouchStart = (id: string, e: React.TouchEvent) => {
+    e.stopPropagation();
+    setSelectedObjectId(id);
+    setDraggingObjectId(id);
+  };
+
+  const updateDraggedPosition = (clientX: number, clientY: number) => {
+    if (!draggingObjectId || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    const pctX = Math.max(0, Math.min(100, parseFloat(((x / rect.width) * 100).toFixed(1))));
+    const pctY = Math.max(0, Math.min(100, parseFloat(((y / rect.height) * 100).toFixed(1))));
+
+    setObjects((prev) =>
+      prev.map((o) => (o.id === draggingObjectId ? { ...o, x: pctX, y: pctY } : o))
+    );
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    if (draggingObjectId) {
+      updateDraggedPosition(e.clientX, e.clientY);
+    }
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent) => {
+    if (draggingObjectId && e.touches.length > 0) {
+      updateDraggedPosition(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    mouseDownTimeRef.current = Date.now();
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleCanvasTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length > 0) {
+      mouseDownTimeRef.current = Date.now();
+      mouseDownPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  };
+
+  const handleCanvasMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (draggingObjectId) {
+      setDraggingObjectId(null);
+      return;
+    }
+
+    if (mouseDownPosRef.current) {
+      const elapsed = Date.now() - mouseDownTimeRef.current;
+      const dist = Math.hypot(
+        e.clientX - mouseDownPosRef.current.x,
+        e.clientY - mouseDownPosRef.current.y
+      );
+
+      // Threshold: click duration < 250ms and moved distance < 6px
+      if (elapsed < 250 && dist < 6) {
+        triggerCanvasPlacement(e.clientX, e.clientY);
+      }
+    }
+    mouseDownPosRef.current = null;
+  };
+
+  const handleCanvasTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (draggingObjectId) {
+      setDraggingObjectId(null);
+      return;
+    }
+
+    if (mouseDownPosRef.current && e.changedTouches.length > 0) {
+      const elapsed = Date.now() - mouseDownTimeRef.current;
+      const dist = Math.hypot(
+        e.changedTouches[0].clientX - mouseDownPosRef.current.x,
+        e.changedTouches[0].clientY - mouseDownPosRef.current.y
+      );
+
+      if (elapsed < 250 && dist < 6) {
+        triggerCanvasPlacement(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      }
+    }
+    mouseDownPosRef.current = null;
+  };
+
+  const triggerCanvasPlacement = (clientX: number, clientY: number) => {
     if (!containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
 
-    // Convert to percentage
     const pctX = parseFloat(((clickX / rect.width) * 100).toFixed(1));
     const pctY = parseFloat(((clickY / rect.height) * 100).toFixed(1));
 
-    // Create a new object or move existing one if one was selected
-    if (selectedObjectId) {
-      // Move selected
-      setObjects((prev) =>
-        prev.map((o) => (o.id === selectedObjectId ? { ...o, x: pctX, y: pctY } : o))
-      );
-    } else {
-      // Create new
-      const newId = `obj_${Date.now()}`;
-      const newObj: HiddenObject = {
-        id: newId,
-        name: `Oggetto ${objects.length + 1}`,
-        x: pctX,
-        y: pctY,
-        radius: 5,
-        emoji: "🔑",
-        scale: 1,
-        rotation: 0,
-        opacity: 1,
-        hint: "Vicino all'elemento contrassegnato.",
-      };
-      setObjects((prev) => [...prev, newObj]);
-      setSelectedObjectId(newId);
-    }
+    const newId = `obj_${Date.now()}`;
+    const newObj: HiddenObject = {
+      id: newId,
+      name: `Oggetto ${objects.length + 1}`,
+      x: pctX,
+      y: pctY,
+      radius: 5,
+      emoji: "🔑",
+      scale: 1,
+      rotation: 0,
+      opacity: 1,
+      hint: "Vicino all'elemento contrassegnato.",
+    };
+    setObjects((prev) => [...prev, newObj]);
+    setSelectedObjectId(newId);
   };
 
   // Update object property changes
@@ -224,7 +332,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
     }
 
     const newLevel: Level = {
-      id: `custom_${Date.now()}`,
+      id: initialLevel ? initialLevel.id : `custom_${Date.now()}`,
       name: levelName || "Livello Creativo",
       creator: creatorName || "Anonimo",
       isCustom: true,
@@ -452,7 +560,14 @@ export const EditorView: React.FC<EditorViewProps> = ({
             {/* Interactive Canvas Grid wrapper */}
             <div
               ref={containerRef}
-              onClick={handleCanvasClick}
+              onMouseDown={handleCanvasMouseDown}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleCanvasMouseUp}
+              onMouseLeave={handleCanvasMouseUp}
+              onTouchStart={handleCanvasTouchStart}
+              onTouchMove={handleCanvasTouchMove}
+              onTouchEnd={handleCanvasTouchEnd}
+              onTouchCancel={handleCanvasTouchEnd}
               className="relative w-full aspect-[9/16] max-w-[380px] mx-auto rounded-2xl overflow-hidden cursor-crosshair bg-slate-950 select-none shadow-inner"
               style={{
                 backgroundImage: `url("${backgroundSource}")`,
@@ -479,7 +594,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
                 return (
                   <div
                     key={obj.id}
-                    className={`absolute flex items-center justify-center rounded-full transition-all duration-150 group
+                    onMouseDown={(e) => handleObjectMouseDown(obj.id, e)}
+                    onTouchStart={(e) => handleObjectTouchStart(obj.id, e)}
+                    className={`absolute flex items-center justify-center rounded-full transition-all duration-150 group cursor-move select-none
                       ${isSelected ? "ring-4 ring-indigo-500 ring-offset-2 z-50 scale-110" : "hover:scale-105 z-20"}`}
                     style={{
                       left: `${obj.x}%`,
@@ -601,7 +718,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
                     Seleziona icona sticker: ({editingEmoji})
                   </label>
                   <div className="grid grid-cols-6 gap-1 h-32 overflow-y-auto bg-indigo-900/30 p-2 rounded-xl scrollbar-thin scrollbar-thumb-indigo-700">
-                    {POPULAR_STICKER_EMOJIS.map((em) => (
+                    {stickerEmojis.map((em) => (
                       <button
                         key={em}
                         onClick={() => {

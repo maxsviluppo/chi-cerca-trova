@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Upload, RotateCcw, AlertCircle } from "lucide-react";
-import { playFairyMagicSound, playBtnClick } from "../utils/audio";
+import { playFairyMagicSound } from "../utils/audio";
 
 import splashBg from "../../assets/allegati/Image-8.jpeg";
 
@@ -13,10 +12,11 @@ interface SplashParticle {
   id: string;
   x: number;
   y: number;
-  angle: number;
-  distance: number;
   scale: number;
-  speed: number;
+  type: "sparkle" | "glow";
+  delay: number;
+  duration: number;
+  angle: number;
 }
 
 interface AmbientParticle {
@@ -65,29 +65,6 @@ export const SplashView: React.FC<SplashViewProps> = ({ onEnter }) => {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      playFairyMagicSound();
-      const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
-        const base64String = uploadEvent.target?.result as string;
-        if (base64String) {
-          localStorage.setItem("custom_splash_bg", base64String);
-          setBgImage(base64String);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleResetBg = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    playBtnClick();
-    localStorage.removeItem("custom_splash_bg");
-    setBgImage(splashBg);
-  };
-
   const handleClickScreen = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!clickReady || isFadingOut) return;
     setClickReady(false);
@@ -101,20 +78,28 @@ export const SplashView: React.FC<SplashViewProps> = ({ onEnter }) => {
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    const count = 45;
+    const count = 40;
     const newParticles: SplashParticle[] = Array.from({ length: count }).map((_, i) => {
-      const angle = (i * 360) / count + (Math.random() * 20 - 10);
-      const distance = 90 + Math.random() * 160;
-      const scale = 0.6 + Math.random() * 1.6;
-      const speed = 0.9 + Math.random() * 0.9;
+      const angle = Math.random() * 360;
+      const distance = Math.random() * 70; // cluster close to the click point
+      const rad = (angle * Math.PI) / 180;
+      const px = clickX + Math.cos(rad) * distance;
+      const py = clickY + Math.sin(rad) * distance;
+      
+      const scale = 0.5 + Math.random() * 1.4;
+      const type = Math.random() > 0.4 ? "sparkle" : "glow";
+      const delay = Math.random() * 0.25;
+      const duration = 0.8 + Math.random() * 0.6;
+
       return {
-        id: `click-gold-${i}-${Date.now()}`,
-        x: clickX,
-        y: clickY,
-        angle,
-        distance,
+        id: `click-sparkle-${i}-${Date.now()}`,
+        x: px,
+        y: py,
         scale,
-        speed,
+        type,
+        delay,
+        duration,
+        angle,
       };
     });
 
@@ -123,7 +108,7 @@ export const SplashView: React.FC<SplashViewProps> = ({ onEnter }) => {
     // Clean dissolve transition triggers home view after sound & particle dispersion completes
     setTimeout(() => {
       onEnter();
-    }, 1100);
+    }, 1200);
   };
 
   return (
@@ -193,8 +178,6 @@ export const SplashView: React.FC<SplashViewProps> = ({ onEnter }) => {
         </motion.div>
       )}
 
-
-
       {/* TRANSITION OVERLAY - PURE DISSOLVE EFFECT CHROME ON CLICK */}
       <AnimatePresence>
         {isFadingOut && (
@@ -208,40 +191,55 @@ export const SplashView: React.FC<SplashViewProps> = ({ onEnter }) => {
         )}
       </AnimatePresence>
 
-      {/* CONCENTRIC CLICKS GOLD STARDUST DISPERSION PARTICLES */}
+      {/* CLICK SPARKLING AND GLOWING PARTICLES WITH FADE-IN AND PULSE */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">
-        {clickParticles.map((star) => {
-          const rad = (star.angle * Math.PI) / 180;
-          const targetX = Math.cos(rad) * star.distance;
-          const targetY = Math.sin(rad) * star.distance;
-
-          return (
-            <motion.div
-              key={star.id}
-              initial={{ x: star.x, y: star.y, scale: 0, opacity: 1, rotate: 0 }}
-              animate={{
-                x: star.x + targetX * star.speed,
-                y: star.y + targetY * star.speed,
-                scale: [star.scale, star.scale * 1.7, 0],
-                opacity: [1, 0.9, 0],
-                rotate: star.angle + (Math.random() * 360),
-              }}
-              transition={{ duration: 1.1, ease: [0.1, 0.8, 0.2, 1] }}
-              className="absolute w-6 h-6 flex items-center justify-center"
-              style={{
-                transform: "translate(-50%, -50%)",
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="#f59e0b"
-                className="w-full h-full filter drop-shadow-[0_0_8px_rgba(251,191,36,0.95)]"
-              >
-                <path d="M12 0l3.09 6.26L22 7.27l-5 4.87 1.18 6.88L12 15.77l-6.18 3.25L7 12.14l-5-4.87 6.91-1.01L12 0z" />
-              </svg>
-            </motion.div>
-          );
-        })}
+        {clickParticles.map((star) => (
+          <motion.div
+            key={star.id}
+            initial={{ 
+              x: star.x, 
+              y: star.y, 
+              scale: 0, 
+              opacity: 0, 
+              rotate: star.angle 
+            }}
+            animate={{
+              scale: [0, star.scale, star.scale * 1.3, star.scale * 0.9, 0],
+              opacity: [0, 1, 0.9, 0.8, 0],
+              rotate: star.angle + 180,
+            }}
+            transition={{ 
+              duration: star.duration, 
+              delay: star.delay,
+              ease: "easeInOut" 
+            }}
+            className="absolute flex items-center justify-center"
+            style={{
+              transform: "translate(-50%, -50%)",
+              width: star.type === "glow" ? "48px" : "24px",
+              height: star.type === "glow" ? "48px" : "24px",
+            }}
+          >
+            {star.type === "glow" ? (
+              // Soft pulsating radial glow (bagliore)
+              <div 
+                className="w-full h-full rounded-full bg-amber-400/35 blur-[5px] animate-pulse"
+              />
+            ) : (
+              // 4-point diamond sparkle SVG (scintilla)
+              <div className="relative w-full h-full flex items-center justify-center">
+                <div className="absolute w-[150%] h-[150%] rounded-full bg-amber-400/20 blur-[4px]" />
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="#f59e0b"
+                  className="w-full h-full relative z-10 filter drop-shadow-[0_0_8px_rgba(251,191,36,0.95)]"
+                >
+                  <path d="M12 0c0 6.627 5.373 12 12 12-6.627 0-12 5.373-12 12 0-6.627-5.373-12-12-12 6.627 0 12-5.373 12-12z" />
+                </svg>
+              </div>
+            )}
+          </motion.div>
+        ))}
       </div>
     </div>
   );

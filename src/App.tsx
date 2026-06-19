@@ -33,6 +33,7 @@ export default function App() {
   const [currentLevelId, setCurrentLevelId] = useState<string>("builtin_house");
   const [foundObjectIds, setFoundObjectIds] = useState<Set<string>>(new Set());
   const [muted, setMuted] = useState(isAudioMuted());
+  const [editingLevel, setEditingLevel] = useState<Level | null>(null);
   
   const [playerName, setPlayerName] = useState("Esploratore");
   const [playerAvatar, setPlayerAvatar] = useState("🕵️");
@@ -160,7 +161,7 @@ export default function App() {
     }
   };
 
-  const handleSaveProfile = (name: string, avatar: string) => {
+  const handleSaveProfile = async (name: string, avatar: string) => {
     const cleanName = name.trim() || "Esploratore";
     setPlayerName(cleanName);
     setPlayerAvatar(avatar);
@@ -168,20 +169,75 @@ export default function App() {
     localStorage.setItem("cerca_e_trova_player_avatar", avatar);
     setShowProfileModal(false);
     playBtnClick();
+
+    const playerId = localStorage.getItem("cerca_e_trova_player_id");
+    if (playerId) {
+      try {
+        await fetch("/api/accounts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: playerId, name: cleanName, avatar })
+        });
+      } catch (err) {
+        console.error("Failed to sync profile to DB:", err);
+      }
+    }
+  };
+
+  const fetchLevels = async () => {
+    try {
+      const res = await fetch("/api/levels");
+      if (res.ok) {
+        const dbLevels = await res.json();
+        const customs = dbLevels.filter((l: any) => l.isCustom);
+        setAllLevels([DEFAULT_BUILTIN_LEVEL, ...customs]);
+      }
+    } catch (err) {
+      console.error("Error fetching levels from DB:", err);
+      const saved = localStorage.getItem("cerca_e_trova_custom_levels");
+      const parsedCustoms = saved ? JSON.parse(saved) : [];
+      setAllLevels([DEFAULT_BUILTIN_LEVEL, ...parsedCustoms]);
+    }
   };
 
   // Load levels configuration and profile on startup
   useEffect(() => {
-    const saved = localStorage.getItem("cerca_e_trova_custom_levels");
-    const parsedCustoms: Level[] = saved ? JSON.parse(saved) : [];
-    
-    // Combine built-in level template with custom ones stored locally
-    setAllLevels([DEFAULT_BUILTIN_LEVEL, ...parsedCustoms]);
+    let playerId = localStorage.getItem("cerca_e_trova_player_id");
+    if (!playerId) {
+      playerId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      localStorage.setItem("cerca_e_trova_player_id", playerId);
+    }
 
-    const savedName = localStorage.getItem("cerca_e_trova_player_name");
-    const savedAvatar = localStorage.getItem("cerca_e_trova_player_avatar");
-    if (savedName) setPlayerName(savedName);
-    if (savedAvatar) setPlayerAvatar(savedAvatar);
+    fetchLevels();
+
+    const fetchAccount = async () => {
+      try {
+        const res = await fetch(`/api/accounts/${playerId}`);
+        if (res.ok) {
+          const acc = await res.json();
+          if (acc) {
+            setPlayerName(acc.name);
+            setPlayerAvatar(acc.avatar);
+          } else {
+            const savedName = localStorage.getItem("cerca_e_trova_player_name") || "Esploratore";
+            const savedAvatar = localStorage.getItem("cerca_e_trova_player_avatar") || "🕵️";
+            await fetch("/api/accounts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: playerId, name: savedName, avatar: savedAvatar })
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error syncing profile with DB:", err);
+        const savedName = localStorage.getItem("cerca_e_trova_player_name");
+        const savedAvatar = localStorage.getItem("cerca_e_trova_player_avatar");
+        if (savedName) setPlayerName(savedName);
+        if (savedAvatar) setPlayerAvatar(savedAvatar);
+      }
+    };
+
+    fetchAccount();
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -319,53 +375,53 @@ export default function App() {
   };
 
   // Level Creator Save Callback
-  const handleSaveCustomLevel = (newLevel: Level) => {
-    const saved = localStorage.getItem("cerca_e_trova_custom_levels");
-    const currentCustoms: Level[] = saved ? JSON.parse(saved) : [];
-    
-    const updatedCustoms = [newLevel, ...currentCustoms];
+  const handleSaveCustomLevel = async (newLevel: Level) => {
     try {
+      const res = await fetch("/api/levels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newLevel)
+      });
+      if (res.ok) {
+        // Refresh levels list from database
+        await fetchLevels();
+        setActiveView("home");
+        // Instantly prompt to play your creation!
+        handleStartPlay(newLevel.id);
+      } else {
+        alert("Errore durante il salvataggio del livello sul database.");
+      }
+    } catch (err) {
+      console.error("Database save failed, using local storage fallback:", err);
+      const saved = localStorage.getItem("cerca_e_trova_custom_levels");
+      const currentCustoms: Level[] = saved ? JSON.parse(saved) : [];
+      const updatedCustoms = [newLevel, ...currentCustoms];
       localStorage.setItem("cerca_e_trova_custom_levels", JSON.stringify(updatedCustoms));
       setAllLevels([DEFAULT_BUILTIN_LEVEL, ...updatedCustoms]);
       setActiveView("home");
-      // Instantly prompt to play your creation!
       handleStartPlay(newLevel.id);
-    } catch (e: any) {
-      console.error("Errore di quota localStorage:", e);
-      if (e.name === "QuotaExceededError" || e.code === 22) {
-        const wantToClear = confirm(
-          "Lo spazio di archiviazione locale (localStorage) del browser è esaurito! Questo succede quando si caricano immagini di sfondo molto grandi.\n\nVuoi svuotare i tuoi livelli personalizzati precedenti per liberare spazio e salvare questo livello?"
-        );
-        if (wantToClear) {
-          try {
-            const singleCustom = [newLevel];
-            localStorage.setItem("cerca_e_trova_custom_levels", JSON.stringify(singleCustom));
-            setAllLevels([DEFAULT_BUILTIN_LEVEL, ...singleCustom]);
-            setActiveView("home");
-            handleStartPlay(newLevel.id);
-          } catch (retryError) {
-            alert(
-              "Impossibile salvare il livello. L'immagine scelta è eccessivamente grande. Prova a utilizzare un'immagine leggermente più piccola!"
-            );
-          }
-        }
-      } else {
-        alert("Si è verificato un errore durante il salvataggio: " + e.message);
-      }
     }
   };
 
   // Delete custom created level helper
-  const handleDeleteCustomLevel = (levelId: string, e: React.MouseEvent) => {
+  const handleDeleteCustomLevel = async (levelId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Avoid triggering play
     if (confirm("Sei sicuro di voler eliminare questo livello personalizzato dal tuo archivio?")) {
-      const saved = localStorage.getItem("cerca_e_trova_custom_levels");
-      const currentCustoms: Level[] = saved ? JSON.parse(saved) : [];
-      
-      const filtered = currentCustoms.filter((l) => l.id !== levelId);
-      localStorage.setItem("cerca_e_trova_custom_levels", JSON.stringify(filtered));
-      
-      setAllLevels([DEFAULT_BUILTIN_LEVEL, ...filtered]);
+      try {
+        const res = await fetch(`/api/levels/${levelId}`, { method: "DELETE" });
+        if (res.ok) {
+          await fetchLevels();
+        } else {
+          throw new Error("API error");
+        }
+      } catch (err) {
+        console.error("Failed to delete level from DB, reverting locally:", err);
+        const saved = localStorage.getItem("cerca_e_trova_custom_levels");
+        const currentCustoms: Level[] = saved ? JSON.parse(saved) : [];
+        const filtered = currentCustoms.filter((l) => l.id !== levelId);
+        localStorage.setItem("cerca_e_trova_custom_levels", JSON.stringify(filtered));
+        setAllLevels([DEFAULT_BUILTIN_LEVEL, ...filtered]);
+      }
       if (currentLevelId === levelId) {
         setCurrentLevelId("builtin_house");
       }
@@ -1183,6 +1239,23 @@ export default function App() {
           <div className="fixed inset-0 w-screen h-screen bg-slate-950 overflow-hidden flex items-center justify-center p-0 z-0">
             {/* 1080x1290 Centered Frame */}
             <div className="relative h-screen w-full max-w-[83.72vh] mx-auto bg-slate-900 overflow-hidden flex flex-col justify-center items-center shadow-3xl">
+              {/* CABINET FLOATING HEADER - LEFT (Login/Profile) */}
+              <div className="absolute top-4 left-4 z-20 pointer-events-auto flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedTempAvatar(playerAvatar);
+                    setShowProfileModal(true);
+                    playBtnClick();
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-white/10 bg-white/10 hover:bg-white/20 text-white rounded-xl cursor-pointer transition-all text-xs font-black shadow-xs"
+                  title={`Profilo Giocatore: ${playerName}`}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span className="text-sm shrink-0">{playerAvatar}</span>
+                  <span className="hidden sm:inline truncate max-w-[95px]">{playerName}</span>
+                </button>
+              </div>
+
               {/* CABINET FLOATING HEADER */}
               <div className="absolute top-4 right-4 z-20 pointer-events-auto flex items-center gap-2">
                 {/* Mute Button */}
@@ -1333,6 +1406,36 @@ export default function App() {
                               Senza Immagine
                             </div>
                           )}
+                          
+                          {lvl.isCustom && (
+                            <div className="absolute top-3 right-3 z-30 flex gap-2">
+                              {/* Edit Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playBtnClick();
+                                  setEditingLevel(lvl);
+                                  setActiveView("editor");
+                                }}
+                                className="p-2 bg-indigo-600/90 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-90 border border-indigo-500 shadow-md flex items-center justify-center"
+                                title="Modifica livello"
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                              </button>
+                              
+                              {/* Delete Button */}
+                              <button
+                                onClick={(e) => {
+                                  handleDeleteCustomLevel(lvl.id, e);
+                                }}
+                                className="p-2 bg-rose-600/90 hover:bg-rose-700 text-white rounded-xl cursor-pointer transition-all active:scale-90 border border-rose-500 shadow-md flex items-center justify-center"
+                                title="Elimina livello"
+                              >
+                                <Trash className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+
                           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10 flex flex-col justify-end p-4">
                             <h4 className="text-white font-black text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">
                               {lvl.name}
@@ -1421,6 +1524,36 @@ export default function App() {
                               Senza Immagine
                             </div>
                           )}
+                          
+                          {lvl.isCustom && (
+                            <div className="absolute top-3 right-3 z-30 flex gap-2">
+                              {/* Edit Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playBtnClick();
+                                  setEditingLevel(lvl);
+                                  setActiveView("editor");
+                                }}
+                                className="p-2 bg-indigo-600/90 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-90 border border-indigo-500 shadow-md flex items-center justify-center"
+                                title="Modifica livello"
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                              </button>
+                              
+                              {/* Delete Button */}
+                              <button
+                                onClick={(e) => {
+                                  handleDeleteCustomLevel(lvl.id, e);
+                                }}
+                                className="p-2 bg-rose-600/90 hover:bg-rose-700 text-white rounded-xl cursor-pointer transition-all active:scale-90 border border-rose-500 shadow-md flex items-center justify-center"
+                                title="Elimina livello"
+                              >
+                                <Trash className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+
                           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10 flex flex-col justify-end p-4">
                             <h4 className="text-white font-black text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">
                               {lvl.name}
@@ -1450,9 +1583,19 @@ export default function App() {
         {/* VIEW 3: COMPREHENSIVE LEVEL EDITOR */}
         {activeView === "editor" && (
           <EditorView
-            onSaveLevel={handleSaveCustomLevel}
-            onCancel={() => setActiveView("home")}
-            onPlayLevel={handleStartPlay}
+            initialLevel={editingLevel}
+            onSaveLevel={(newLevel) => {
+              handleSaveCustomLevel(newLevel);
+              setEditingLevel(null);
+            }}
+            onCancel={() => {
+              setEditingLevel(null);
+              setActiveView("home");
+            }}
+            onPlayLevel={(level) => {
+              setEditingLevel(null);
+              handleStartPlay(level.id);
+            }}
           />
         )}
       </main>
