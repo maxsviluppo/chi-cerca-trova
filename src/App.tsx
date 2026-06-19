@@ -1161,7 +1161,7 @@ export default function App() {
       <main className={`animate-fadeIn ${activeView === "home" ? "mt-0" : "mt-4"}`}>
         {/* VIEW 1: HOME DASHBOARD / LEVEL SELECTOR */}
         {activeView === "home" && (
-          <div className="relative h-screen w-full max-w-[56.25vh] mx-auto bg-slate-950 overflow-hidden flex flex-col justify-center items-center p-6 shadow-3xl z-0">
+          <div className="fixed inset-0 w-screen h-screen bg-slate-950 overflow-hidden flex flex-col justify-center items-center p-6 z-0">
             {/* CABINET FLOATING HEADER */}
             <div className="absolute top-4 right-4 z-20 pointer-events-auto">
               {/* Mute Button */}
@@ -1179,9 +1179,11 @@ export default function App() {
             </div>
 
             {/* Full-bleed background Image-11 */}
-            <div 
-              className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-1000 scale-105"
-              style={{ backgroundImage: `url(${homeBg})` }}
+            <img 
+              src={homeBg}
+              alt="Sfondo"
+              className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-1000 scale-105"
+              style={{ objectPosition: "center 40px" }}
             />
 
             {/* FLOATING ACTION BUTTONS */}
